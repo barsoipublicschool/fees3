@@ -55,7 +55,7 @@
 </div>
 
 <script>
-  // अपना Web App URL नीचे पेस्ट करें
+  // आपका Web App URL
   const API_URL = "https://script.google.com/macros/s/AKfycbySsCcmfKHVNTT4H2rpbBIxkkKGjhBDEmxQjjH-OAUpyvFk-bal780WmJeB7oe01noX/exec";
 
   let allStudentsData = [];
@@ -64,18 +64,20 @@
     loadStudents();
   };
 
-  async function loadStudents() {
+  function loadStudents() {
     document.getElementById('studentTableBody').innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted"><div class="spinner-border text-primary spinner-border-sm me-2"></div>Loading Data...</td></tr>';
     
-    try {
-      let res = await fetch(`${API_URL}?action=getStudents`);
-      let data = await res.json();
-      allStudentsData = data;
-      populateClassDropdown(data);
-      filterData();
-    } catch(err) {
-      document.getElementById('studentTableBody').innerHTML = '<tr><td colspan="8" class="text-danger py-4 fw-bold">Error loading data. Check Web App Deployment!</td></tr>';
-    }
+    fetch(`${API_URL}?action=getStudents`, { method: 'GET', redirect: 'follow' })
+      .then(response => response.json())
+      .then(data => {
+        allStudentsData = data;
+        populateClassDropdown(data);
+        filterData();
+      })
+      .catch(err => {
+        console.error("Error:", err);
+        document.getElementById('studentTableBody').innerHTML = '<tr><td colspan="8" class="text-danger py-4 fw-bold">Error loading data. Check Web App Access Permission!</td></tr>';
+      });
   }
 
   function populateClassDropdown(data) {
@@ -139,7 +141,7 @@
     document.getElementById(`total-${rowIndex}`).innerText = '₹' + (prev + month);
   }
 
-  async function sendReminder(rowIndex) {
+  function sendReminder(rowIndex) {
     let prevFee = parseFloat(document.getElementById(`prev-${rowIndex}`).value) || 0;
     let monthlyFee = parseFloat(document.getElementById(`month-${rowIndex}`).value) || 0;
     let totalDue = prevFee + monthlyFee;
@@ -150,38 +152,31 @@
     btn.disabled = true;
     btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>Saving...`;
 
-    try {
-      // POST request to update Google Sheet
-      await fetch(API_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          rowIndex: rowIndex,
-          prevFee: prevFee,
-          monthlyFee: monthlyFee
-        })
-      });
-
+    fetch(API_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({
+        rowIndex: rowIndex,
+        prevFee: prevFee,
+        monthlyFee: monthlyFee
+      })
+    }).then(() => {
       btn.disabled = false;
       btn.innerHTML = `Save & Send 📲`;
 
-      // WhatsApp URL formatting
       let phone = String(student.whatsappNo).replace(/[^0-9]/g, '');
       if (phone.length === 10) phone = '91' + phone;
 
       let message = `Dear Parent (${student.fatherName}), SAGAR PUBLIC SCHOOL ki taraf se reminder: ${student.name} (Class: ${student.sClass}) ki kul fees balance ₹${totalDue} hai (Monthly Fee: ₹${monthlyFee} + Pichhla Dues: ₹${prevFee}). Kripya niche diye gaye UPI ID par payment karein ya QR code scan karein: upi://pay?pa=riyazahmad5@okaxis&am=${totalDue} Dhanyawad!`;
 
       let waUrl = `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
-      
-      // Open WhatsApp
       window.open(waUrl, '_blank');
-
-    } catch(err) {
-      alert("Saving failed! Please try again.");
+    }).catch(err => {
+      alert("Error saving data.");
       btn.disabled = false;
       btn.innerHTML = `Save & Send 📲`;
-    }
+    });
   }
 </script>
 
